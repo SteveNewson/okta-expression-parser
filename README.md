@@ -30,7 +30,24 @@ result, err := p.Parse(`user.location == "US" and isMemberOfGroup("00g1")`)
 
 `Parse` returns `any`: a `bool`, `int`, `float64`, `string`, `nil`,
 `oktaexpr.Array`, `oktaexpr.Tuple`, or `map[string]any`, depending on the
-expression.
+expression. Most callers know ahead of time which type they expect — e.g.
+an Okta group rule is always a boolean — so `Parser` also has typed
+accessors that do the type assertion for you and return `ErrUnexpectedType`
+(checkable with `errors.Is`) if the expression evaluated fine but produced a
+different type:
+
+```go
+member, err := p.ParseBool(`isMemberOfGroup("00g1")`)
+if errors.Is(err, oktaexpr.ErrUnexpectedType) {
+	// the expression parsed and evaluated, but didn't produce a bool
+}
+```
+
+`ParseBool`, `ParseString`, `ParseInt`, `ParseFloat64`, and `ParseArray` are
+available. None of them coerce between numeric types — `ParseInt` on an
+expression that evaluates to a `float64` (e.g. `Convert.toNum(...)`) returns
+`ErrUnexpectedType` rather than truncating, matching the language's own
+type-strictness elsewhere (see the note on relational operators below).
 
 ## Deviations from the Python source
 

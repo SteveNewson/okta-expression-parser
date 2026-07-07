@@ -1,0 +1,10 @@
+# Environment variables
+.env
+.env.*
+
+# Binaries
+/bin/
+
+# OS generated files
+.DS_Store
+.idea/

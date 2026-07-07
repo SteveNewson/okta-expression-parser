@@ -48,4 +48,8 @@ test: unit ## Run all tests
 ##
 .PHONY: unit
 unit: lint ## Run all unit tests
-	@./bin/gotestsum -f ${GOTESTSUM_FMT} -- ${LIB_INTERNAL}
+	@if [ -x ./bin/gotestsum ]; then \
+		./bin/gotestsum -f ${GOTESTSUM_FMT} -- ${LIB_INTERNAL}; \
+	else \
+		echo "gotestsum not found, run 'make deps' first"; \
+	fi

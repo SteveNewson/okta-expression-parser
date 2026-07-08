@@ -15,6 +15,7 @@ type Parser struct {
 	userProfile map[string]any
 	groupData   map[string]any
 	classes     expressionclasses.Registry
+	strict      bool
 }
 
 // Option configures a Parser constructed by New.
@@ -53,6 +54,22 @@ func WithExpressionClasses(classes expressionclasses.Registry) Option {
 	return func(p *Parser) { p.classes = classes }
 }
 
+// WithStrict enables strict property access: a "user.<name>" (or any other
+// "."-chained) access fails evaluation with an error if the key is genuinely
+// absent from the underlying map. A key that's present but holds a blank or
+// zero value ("", 0, false, null/nil) is not an error — only the key's
+// existence is checked, never its value — so this exists purely to catch
+// expressions built against attribute names the data source doesn't have at
+// all (typos, or attributes that were never exported), which would
+// otherwise silently evaluate to nil and produce a rule that never matches
+// without any diagnostic.
+//
+// Off by default (the historical, source-matching behavior) so existing
+// callers are unaffected; opt in with WithStrict(true).
+func WithStrict(strict bool) Option {
+	return func(p *Parser) { p.strict = strict }
+}
+
 // New constructs a Parser. With no options, it has no group memberships, an
 // empty user profile, and the default expression classes.
 func New(opts ...Option) *Parser {
@@ -87,6 +104,7 @@ func (p *Parser) Parse(expression string) (any, error) {
 		groupIDs:    p.groupIDs,
 		groupData:   p.groupData,
 		classes:     p.classes,
+		strict:      p.strict,
 	}
 	return ctx.parse()
 }

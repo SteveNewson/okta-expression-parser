@@ -24,6 +24,7 @@ type evalContext struct {
 	groupIDs    []string
 	groupData   map[string]any
 	classes     expressionclasses.Registry
+	strict      bool
 }
 
 func (c *evalContext) peek() token {
@@ -370,9 +371,14 @@ func isMemberOfToken(typ tokenType) bool {
 // starting from root. The source grammar only supported a single "." hop
 // after "user" or a bare name; this port deliberately extends that to
 // arbitrary depth (e.g. user.profile.department.name) to match real Okta
-// Expression Language behavior. When a hop can't be resolved (the current
-// value isn't a map, or the key is missing), the result is nil, rather than
-// the source's quirk of returning the last resolved value unchanged.
+// Expression Language behavior. When a hop can't be resolved because the
+// current value isn't a map, the result is nil, rather than the source's
+// quirk of returning the last resolved value unchanged. When a hop can't be
+// resolved because the key is missing from the map, the result is nil too —
+// unless strict mode is on (see WithStrict), in which case a missing key is
+// an error. Either way, a key that's present but holds a blank/zero value
+// is never an error: strict mode checks only whether the key exists, not
+// what it holds.
 //
 // A dot immediately followed by one of the isMemberOf* builtins, e.g.
 // user.isMemberOfGroupName("x"), is real-world Okta syntax for the same
@@ -409,6 +415,9 @@ func (c *evalContext) parsePathChain(root any) (any, error) {
 		}
 		res, exists := m[nameTok.value]
 		if !exists {
+			if c.strict {
+				return nil, fmt.Errorf("property %q does not exist at character %d", nameTok.value, nameTok.pos)
+			}
 			val = nil
 			continue
 		}

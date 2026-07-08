@@ -458,6 +458,94 @@ func TestParse_DeepUserProfilePaths(t *testing.T) {
 	}
 }
 
+// TestParse_StrictPropertyAccess covers WithStrict: a "." access to a key
+// that's genuinely absent from the map is an error, but a key that's
+// present with a blank/zero/null value is not, since strict mode checks
+// only whether the key exists, not what it holds.
+func TestParse_StrictPropertyAccess(t *testing.T) {
+	t.Parallel()
+
+	profile := map[string]any{
+		"department": "Engineering",
+		"blank":      "",
+		"zero":       0,
+		"falseVal":   false,
+		"nullVal":    nil,
+		"nested":     map[string]any{"leaf": "value"},
+	}
+
+	t.Run("missing top-level key is an error", func(t *testing.T) {
+		t.Parallel()
+		p := oktaexpr.New(oktaexpr.WithStrict(true), oktaexpr.WithUserProfile(profile))
+		_, err := p.Parse(`user.managerEmail == "x@example.com"`)
+		if err == nil {
+			t.Fatalf("Parse: got nil error, want an error for a missing key")
+		}
+	})
+
+	t.Run("missing nested key is an error", func(t *testing.T) {
+		t.Parallel()
+		p := oktaexpr.New(oktaexpr.WithStrict(true), oktaexpr.WithUserProfile(profile))
+		_, err := p.Parse(`user.nested.missing == "x"`)
+		if err == nil {
+			t.Fatalf("Parse: got nil error, want an error for a missing nested key")
+		}
+	})
+
+	present := []struct {
+		name string
+		expr string
+	}{
+		{"present key with a real value", `user.department == "Engineering"`},
+		{"present key with a blank string", `user.blank == ""`},
+		{"present key with zero", `user.zero == 0`},
+		{"present key with false", `user.falseVal == false`},
+		{"present key with null", `user.nullVal == null`},
+		{"present nested key", `user.nested.leaf == "value"`},
+	}
+	for _, tc := range present {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			p := oktaexpr.New(oktaexpr.WithStrict(true), oktaexpr.WithUserProfile(profile))
+			got, err := p.Parse(tc.expr)
+			if err != nil {
+				t.Fatalf("Parse(%q): unexpected error %v", tc.expr, err)
+			}
+			if got != true {
+				t.Errorf("Parse(%q): got %#v, want true", tc.expr, got)
+			}
+		})
+	}
+
+	t.Run("resolving through a non-map segment stays nil, not an error", func(t *testing.T) {
+		t.Parallel()
+		// user.department is the string "Engineering"; dotting further into
+		// it isn't a missing-key case (there's no map to look the key up
+		// in), so strict mode leaves this alone rather than treating it the
+		// same as a genuinely absent attribute.
+		p := oktaexpr.New(oktaexpr.WithStrict(true), oktaexpr.WithUserProfile(profile))
+		got, err := p.Parse(`user.department.anything == null`)
+		if err != nil {
+			t.Fatalf("Parse: unexpected error %v", err)
+		}
+		if got != true {
+			t.Errorf("Parse: got %#v, want true", got)
+		}
+	})
+
+	t.Run("default (non-strict) still resolves a missing key to nil", func(t *testing.T) {
+		t.Parallel()
+		p := oktaexpr.New(oktaexpr.WithUserProfile(profile))
+		got, err := p.Parse(`user.managerEmail == null`)
+		if err != nil {
+			t.Fatalf("Parse: unexpected error %v", err)
+		}
+		if got != true {
+			t.Errorf("Parse: got %#v, want true", got)
+		}
+	})
+}
+
 func TestParse_MemberOfGroup(t *testing.T) {
 	t.Parallel()
 

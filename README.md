@@ -175,6 +175,35 @@ calls worth calling out explicitly:
   parse-time error, matching the strictness of the relational operators),
   and float literals like `3.141` parse as `float64`.
 
+## Strict property access
+
+By default, accessing a `user.<name>` (or any other `.`-chained) property
+that doesn't exist in the underlying map resolves to `nil`, matching the
+Python source. That's indistinguishable from a genuinely blank/zero value,
+so a rule built against a typo'd or never-exported attribute name silently
+evaluates to a wrong-but-not-erroring result instead of surfacing the
+mistake.
+
+`WithStrict(true)` opts into failing evaluation instead, but only when the
+key is truly absent from the map — a key that's present with a blank string,
+zero, `false`, or `null` is not an error, since the point is to catch
+missing *attributes*, not "falsy" values:
+
+```go
+p := oktaexpr.New(
+	oktaexpr.WithStrict(true),
+	oktaexpr.WithUserProfile(map[string]any{"department": "Engineering"}),
+)
+
+_, err := p.Parse(`user.managerEmail == "x@example.com"`)
+// err != nil: "managerEmail" isn't a key in the profile map at all
+
+_, err = p.Parse(`user.department == "Engineering"`)
+// err == nil: the key exists, even though other keys are missing
+```
+
+Off by default so existing callers are unaffected.
+
 ## Coverage against Okta's public reference docs
 
 This library implements the subset of Okta Expression Language needed to

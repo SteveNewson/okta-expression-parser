@@ -175,6 +175,23 @@ calls worth calling out explicitly:
   parse-time error, matching the strictness of the relational operators),
   and float literals like `3.141` parse as `float64`.
 
+- **`String.stringContains` only worked when both arguments were strings
+  (fixed).** The Python source's `stringContains(container, val)` is just
+  `val in container` wrapped in a try/except that turns any `TypeError` into
+  `False`. Since Python's `in` is polymorphic over strings *and*
+  lists/sets, real production rules use
+  `String.stringContains({"a", "b"}, user.department)` as an allow/deny-list
+  membership check — relying on the exact same `in` behavior other rules use
+  for substring checks. This port originally required both arguments to be
+  Go strings and silently returned `false` for anything else (matching only
+  the "non-string second argument" case, e.g. `stringContains("hello", 5)`,
+  which really does throw in Python and so is genuinely `false`). That made
+  the array-container idiom always evaluate to `false` — inverting the
+  intent of any rule that negated it, e.g.
+  `!String.stringContains({"a", "b"}, user.department)` always evaluating
+  `true` regardless of `user.department`. `stringContains` now also accepts
+  an array first argument and does a membership check against it.
+
 ## Strict property access
 
 By default, accessing a `user.<name>` (or any other `.`-chained) property

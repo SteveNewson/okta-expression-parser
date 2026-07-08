@@ -808,6 +808,71 @@ func TestParse_ClassMethodCalls(t *testing.T) {
 	}
 }
 
+// TestParse_StringContainsArrayIdiom covers a real-world production Okta
+// rule idiom: String.stringContains({...}, user.<attr>) as an allow/deny
+// list check, exploiting Python's polymorphic "in" operator (which the
+// source's stringContains wraps) working the same way over both strings and
+// lists. A prior version of this port only accepted two actual strings and
+// silently returned false for anything else, so
+// !String.stringContains({"a", "b"}, user.division) was always true
+// regardless of user.division — inverting the rule's intent to exclude
+// exactly the divisions listed.
+func TestParse_StringContainsArrayIdiom(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		expr    string
+		profile map[string]any
+		want    any
+	}{
+		{
+			"division in the list",
+			`String.stringContains({"Operations", "Fraud"}, user.division)`,
+			map[string]any{"division": "Operations"},
+			true,
+		},
+		{
+			"division not in the list",
+			`String.stringContains({"Operations", "Fraud"}, user.division)`,
+			map[string]any{"division": "Engineering"},
+			false,
+		},
+		{
+			"negated: excluded division is false",
+			`!String.stringContains({"Operations", "Fraud"}, user.division)`,
+			map[string]any{"division": "Operations"},
+			false,
+		},
+		{
+			"negated: non-excluded division is true",
+			`!String.stringContains({"Operations", "Fraud"}, user.division)`,
+			map[string]any{"division": "Engineering"},
+			true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			// Given
+			p := oktaexpr.New(oktaexpr.WithUserProfile(tc.profile))
+
+			// When
+			got, err := p.Parse(tc.expr)
+
+			// Then
+			if err != nil {
+				t.Fatalf("Parse(%q): unexpected error %v", tc.expr, err)
+			}
+			if got != tc.want {
+				t.Errorf("Parse(%q): got %#v, want %#v", tc.expr, got, tc.want)
+			}
+		})
+	}
+}
+
 // TestParse_CommaGreedilyBindsToInnermostOperand verifies a surprising but
 // verified-real behavior of the source grammar: a comma inside a nested
 // ternary branch is consumed by that branch (building a Tuple) rather than

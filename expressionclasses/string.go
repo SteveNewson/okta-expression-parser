@@ -60,18 +60,43 @@ func stringLen(args []any) (any, error) {
 	return len([]rune(val)), nil
 }
 
-// stringContains tests if a string contains another string. Unlike the
-// contains method below, both arguments must genuinely be strings.
+// stringStringContains mirrors the Python source's `val in container`
+// (wrapped in a try/except that turns any TypeError into False), which is
+// polymorphic over what container is:
+//
+//   - a string: substring containment, and only if val is also a string —
+//     `5 in "hello"` raises in Python, caught by the source's except clause
+//     and turned into False, so a non-string val is False here too, not an
+//     error (see TestString_Call's "non-string is false" case).
+//   - a list/array: membership containment (`x in [1, 2, 3]`) — real Okta
+//     rules use this idiom as e.g.
+//     `String.stringContains({"a", "b"}, user.department)` to test
+//     department against an allow/deny list, exploiting the fact that
+//     Python's "in" works the same way across both container types.
+//
+// Anything else isn't iterable in Python either, so it's False too.
 func stringStringContains(args []any) (any, error) {
 	if len(args) != 2 {
 		return nil, argCountError("String", "stringContains", "2", len(args))
 	}
-	strToTest, ok1 := args[0].(string)
-	val, ok2 := args[1].(string)
-	if !ok1 || !ok2 {
+
+	switch container := args[0].(type) {
+	case string:
+		val, ok := args[1].(string)
+		if !ok {
+			return false, nil
+		}
+		return strings.Contains(container, val), nil
+	case values.Array:
+		for _, item := range container {
+			if values.EqualOperands(item, args[1]) {
+				return true, nil
+			}
+		}
+		return false, nil
+	default:
 		return false, nil
 	}
-	return strings.Contains(strToTest, val), nil
 }
 
 // startsWith returns whether val starts with test.

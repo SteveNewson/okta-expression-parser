@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stevenewson/okta-expression-parser/expressionclasses"
+	"github.com/stevenewson/okta-expression-parser/values"
 )
 
 func TestString_Call(t *testing.T) {
@@ -20,6 +21,10 @@ func TestString_Call(t *testing.T) {
 		{"stringContains true", "stringContains", []any{"hello", "ell"}, true},
 		{"stringContains false", "stringContains", []any{"hello", "xyz"}, false},
 		{"stringContains non-string is false, not an error", "stringContains", []any{"hello", 5}, false},
+		{"stringContains array container, member present", "stringContains", []any{values.Array{"Sales", "Marketing"}, "Sales"}, true},
+		{"stringContains array container, member absent", "stringContains", []any{values.Array{"Sales", "Marketing"}, "Engineering"}, false},
+		{"stringContains array container, non-string member", "stringContains", []any{values.Array{1, 2, 3}, 2}, true},
+		{"stringContains array container, empty array", "stringContains", []any{values.Array{}, "Sales"}, false},
 		{"startsWith true", "startsWith", []any{"hello", "he"}, true},
 		{"startsWith false", "startsWith", []any{"hello", "lo"}, false},
 		{"toLowerCase", "toLowerCase", []any{"ABC"}, "abc"},

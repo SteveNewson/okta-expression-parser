@@ -55,13 +55,6 @@ import (
 //     in the "Conditional samples" section, which rely on bare (non-"user.")
 //     source-attribute names and so aren't resolvable through this
 //     library's WithUserProfile.
-//
-// Three real bugs were found and fixed while writing these tests:
-// String.len was entirely unimplemented, Arrays.size(NULL)/isEmpty(NULL)
-// errored instead of returning 0/true, and Convert.toInt truncated a float
-// instead of rounding to the nearest integer. Two documented but previously
-// entirely unimplemented features were also added: the "+" operator and
-// decimal float literals (e.g. 3.141).
 
 func TestReferenceDoc_StringFunctions(t *testing.T) {
 	t.Parallel()

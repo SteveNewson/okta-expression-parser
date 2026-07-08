@@ -68,6 +68,9 @@ func TestParse_Comparisons(t *testing.T) {
 		{"int equal", "1 == 1", true},
 		{"int not equal via ==", "1 == 2", false},
 		{"string equal", `"a" == "a"`, true},
+		{"single-quoted string equal", `'a' == 'a'`, true},
+		{"single- and double-quoted string equal", `'a' == "a"`, true},
+		{"single-quoted string containing a double quote", `'a"b' == 'a"b'`, true},
 		{"int not-equal true", "1 != 2", true},
 		{"int not-equal false", "1 != 1", false},
 		{"gt false", "1 > 2", false},
@@ -330,6 +333,7 @@ func TestParse_UserProfilePaths(t *testing.T) {
 	}{
 		{"single-level attribute", "user.location", "US"},
 		{"comparison against attribute", `user.location == "US"`, true},
+		{"comparison against attribute, single-quoted", `user.location == 'US'`, true},
 		{"missing attribute is null", "user.missing == null", true},
 		{"bare name (not user.) is always null, matching source quirk", "foo", nil},
 		{"combined attribute comparison", `user.location == "US" and user.userName == "SU"`, true},

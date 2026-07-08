@@ -129,9 +129,10 @@ func tokenize(input string) ([]token, error) {
 		case c == '?':
 			toks = append(toks, token{tokQuestion, "?", start})
 			i++
-		case c == '"':
+		case c == '"' || c == '\'':
+			quote := c
 			j := i + 1
-			for j < n && input[j] != '"' {
+			for j < n && input[j] != quote {
 				if input[j] == '\\' && j+1 < n {
 					j += 2
 					continue

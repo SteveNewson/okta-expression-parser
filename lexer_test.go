@@ -118,6 +118,10 @@ func TestTokenize_StringLiteral(t *testing.T) {
 		{"empty string", `""`, `""`},
 		{"escaped quote inside string", `"a\"b"`, `"a\"b"`},
 		{"escaped backslash inside string", `"a\\b"`, `"a\\b"`},
+		{"single-quoted string", `'hello'`, `'hello'`},
+		{"single-quoted empty string", `''`, `''`},
+		{"single-quoted string containing a double quote", `'a"b'`, `'a"b'`},
+		{"escaped single quote inside single-quoted string", `'a\'b'`, `'a\'b'`},
 	}
 
 	for _, tc := range tests {
@@ -149,6 +153,7 @@ func TestTokenize_Errors(t *testing.T) {
 		input string
 	}{
 		{"unterminated string", `"unterminated`},
+		{"unterminated single-quoted string", `'unterminated`},
 		{"bare ampersand", "1 & 1"},
 		{"bare pipe", "1 | 1"},
 		{"bare equals", "1 = 1"},

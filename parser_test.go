@@ -573,6 +573,60 @@ func TestParse_MemberOfGroupNameFamily(t *testing.T) {
 	}
 }
 
+// TestParse_UserMemberOfMethodCall covers the "user."-prefixed method-call
+// spelling of the isMemberOf* builtins (e.g. user.isMemberOfGroupName("x")),
+// as opposed to the bare isMemberOfGroupName("x") form covered by
+// TestParse_MemberOfGroup and friends. This form is seen in real production
+// Okta group rules, including combined with a == comparison
+// (user.isMemberOfGroupName("x") == False), which the bare form rejects
+// (see TestParse_Comparison_Errors) since it's always condition-typed;
+// the "user." form instead resolves through the operand-typed path-chain
+// production, so it behaves as an ordinary boolean and the comparison is
+// valid.
+func TestParse_UserMemberOfMethodCall(t *testing.T) {
+	t.Parallel()
+
+	groupIDs := []string{"00g1", "00g2"}
+	groupData := map[string]any{
+		"00g1": map[string]any{"profile": map[string]any{"name": "Engineering Team"}},
+	}
+
+	tests := []struct {
+		name string
+		expr string
+		want any
+	}{
+		{"isMemberOfGroup true", `user.isMemberOfGroup("00g1")`, true},
+		{"isMemberOfGroup false", `user.isMemberOfGroup("00g3")`, false},
+		{"isMemberOfAnyGroup true", `user.isMemberOfAnyGroup("00g3", "00g1")`, true},
+		{"isMemberOfGroupName true", `user.isMemberOfGroupName("Engineering Team")`, true},
+		{"isMemberOfGroupName false", `user.isMemberOfGroupName("Sales Team")`, false},
+		{"compared with == False", `user.isMemberOfGroupName("Sales Team") == False`, true},
+		{"compared with == True", `user.isMemberOfGroupName("Engineering Team") == True`, true},
+		{"combined with AND", `user.isMemberOfGroupName("Sales Team") == False AND isMemberOfGroup("00g1")`, true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			// Given
+			p := oktaexpr.New(oktaexpr.WithGroupIDs(groupIDs), oktaexpr.WithGroupData(groupData))
+
+			// When
+			got, err := p.Parse(tc.expr)
+
+			// Then
+			if err != nil {
+				t.Fatalf("Parse(%q): unexpected error %v", tc.expr, err)
+			}
+			if got != tc.want {
+				t.Errorf("Parse(%q): got %v, want %v", tc.expr, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestParse_ArrayLiterals(t *testing.T) {
 	t.Parallel()
 

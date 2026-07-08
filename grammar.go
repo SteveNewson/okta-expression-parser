@@ -289,8 +289,8 @@ func (c *evalContext) parseAdditive() (any, bool, error) {
 // expressions (which preserve whatever type was inside, exactly like the
 // source's separate "(" condition ")" and "(" operand ")" rules).
 func (c *evalContext) parseAtom() (any, bool, error) {
-	switch c.peek().typ {
-	case tokLParen:
+	switch {
+	case c.peek().typ == tokLParen:
 		c.advance()
 		val, isCond, err := c.parseExpr()
 		if err != nil {
@@ -300,7 +300,7 @@ func (c *evalContext) parseAtom() (any, bool, error) {
 			return nil, false, err
 		}
 		return val, isCond, nil
-	case tokMemberOf, tokMemberOfAny, tokMemberOfName, tokMemberOfGroupStartsWith, tokMemberOfGroupContains, tokMemberOfGroupNameRegex:
+	case isMemberOfToken(c.peek().typ):
 		val, err := c.parseMemberOf()
 		return val, true, err
 	default:
@@ -354,6 +354,18 @@ func (c *evalContext) parsePrimary() (any, error) {
 	}
 }
 
+// isMemberOfToken reports whether typ is one of the isMemberOf* builtin
+// tokens, used both to dispatch the bare-call form in parseAtom and the
+// user.isMemberOf...(...) method-call form in parsePathChain.
+func isMemberOfToken(typ tokenType) bool {
+	switch typ {
+	case tokMemberOf, tokMemberOfAny, tokMemberOfName, tokMemberOfGroupStartsWith, tokMemberOfGroupContains, tokMemberOfGroupNameRegex:
+		return true
+	default:
+		return false
+	}
+}
+
 // parsePathChain resolves a (possibly empty) chain of ".name" accesses
 // starting from root. The source grammar only supported a single "." hop
 // after "user" or a bare name; this port deliberately extends that to
@@ -361,10 +373,30 @@ func (c *evalContext) parsePrimary() (any, error) {
 // Expression Language behavior. When a hop can't be resolved (the current
 // value isn't a map, or the key is missing), the result is nil, rather than
 // the source's quirk of returning the last resolved value unchanged.
+//
+// A dot immediately followed by one of the isMemberOf* builtins, e.g.
+// user.isMemberOfGroupName("x"), is real-world Okta syntax for the same
+// group-membership check as the bare isMemberOfGroupName("x") builtin — seen
+// in production group rules such as
+// `user.isMemberOfGroupName("x") == False AND isMemberOfAnyGroup("g1")`.
+// Unlike the bare form (always condition-typed, so it can't be compared with
+// ==/!=, see parseAtom), this method-call spelling is reached through the
+// operand-typed primary/path-chain production, so its result behaves as an
+// ordinary boolean operand and the == comparison above is valid.
 func (c *evalContext) parsePathChain(root any) (any, error) {
 	val := root
 	for c.peek().typ == tokDot {
 		c.advance()
+
+		if isMemberOfToken(c.peek().typ) {
+			memberVal, err := c.parseMemberOf()
+			if err != nil {
+				return nil, err
+			}
+			val = memberVal
+			continue
+		}
+
 		nameTok, err := c.expect(tokName, "a property name")
 		if err != nil {
 			return nil, err

@@ -207,7 +207,7 @@ var comparisonOps = map[tokenType]string{
 // "condition").
 func (c *evalContext) parseComparison() (any, bool, error) {
 	lhsTok := c.peek()
-	val, isCond, err := c.parseAtom()
+	val, isCond, err := c.parseAdditive()
 	if err != nil {
 		return nil, false, err
 	}
@@ -222,7 +222,7 @@ func (c *evalContext) parseComparison() (any, bool, error) {
 	opTok := c.advance()
 
 	rhsTok := c.peek()
-	rhs, rhsCond, err := c.parseAtom()
+	rhs, rhsCond, err := c.parseAdditive()
 	if err != nil {
 		return nil, false, err
 	}
@@ -246,6 +246,42 @@ func applyComparison(op string, a, b any) (bool, error) {
 	default:
 		return compareOperands(op, a, b)
 	}
+}
+
+// parseAdditive implements the "+" operator: string concatenation, or
+// arithmetic addition for two ints or two floats (see values.AddOperands).
+// It binds tighter than comparisons but looser than a primary/isMemberOf*
+// atom, e.g. user.firstName + user.lastName == "WinstonChurchill" parses as
+// (user.firstName + user.lastName) == "WinstonChurchill". Both sides must be
+// operand-typed, matching the strictness of the comparison operators above.
+func (c *evalContext) parseAdditive() (any, bool, error) {
+	lhsTok := c.peek()
+	val, isCond, err := c.parseAtom()
+	if err != nil {
+		return nil, false, err
+	}
+
+	for c.peek().typ == tokPlus {
+		if isCond {
+			return nil, false, fmt.Errorf("'+' requires a value expression on the left, found a boolean condition expression at character %d", lhsTok.pos)
+		}
+		plusTok := c.advance()
+
+		rhsTok := c.peek()
+		rhs, rhsCond, err := c.parseAtom()
+		if err != nil {
+			return nil, false, err
+		}
+		if rhsCond {
+			return nil, false, fmt.Errorf("'+' requires a value expression on the right, found a boolean condition expression at character %d", rhsTok.pos)
+		}
+
+		val, err = addOperands(val, rhs)
+		if err != nil {
+			return nil, false, fmt.Errorf("%s at character %d", err, plusTok.pos)
+		}
+	}
+	return val, isCond, nil
 }
 
 // parseAtom parses the atoms that comparisons operate on: primaries,
@@ -283,6 +319,13 @@ func (c *evalContext) parsePrimary() (any, error) {
 			return nil, fmt.Errorf("invalid integer literal %q at character %d", tok.value, tok.pos)
 		}
 		return n, nil
+	case tokFloat:
+		c.advance()
+		f, err := strconv.ParseFloat(tok.value, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid number literal %q at character %d", tok.value, tok.pos)
+		}
+		return f, nil
 	case tokString:
 		c.advance()
 		return unquoteString(tok.value), nil

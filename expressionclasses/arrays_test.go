@@ -184,6 +184,27 @@ func TestArrays_Size(t *testing.T) {
 	}
 }
 
+// TestArrays_Size_Null is a regression test: Arrays.size(NULL) is documented
+// to return 0, but previously errored because nil isn't a values.Array like
+// every other non-array argument.
+func TestArrays_Size_Null(t *testing.T) {
+	t.Parallel()
+
+	// Given
+	arr := expressionclasses.Arrays{}
+
+	// When
+	got, err := arr.Call("size", nil)
+
+	// Then
+	if err != nil {
+		t.Fatalf("Arrays.size(NULL): unexpected error %v", err)
+	}
+	if got != 0 {
+		t.Errorf("Arrays.size(NULL): got %v, want 0", got)
+	}
+}
+
 func TestArrays_IsEmpty(t *testing.T) {
 	t.Parallel()
 
@@ -214,6 +235,27 @@ func TestArrays_IsEmpty(t *testing.T) {
 				t.Errorf("Arrays.isEmpty(%#v): got %v, want %v", tc.array, got, tc.want)
 			}
 		})
+	}
+}
+
+// TestArrays_IsEmpty_Null is a regression test: Arrays.isEmpty(NULL) is
+// documented to return true, but previously errored because nil isn't a
+// values.Array like every other non-array argument.
+func TestArrays_IsEmpty_Null(t *testing.T) {
+	t.Parallel()
+
+	// Given
+	arr := expressionclasses.Arrays{}
+
+	// When
+	got, err := arr.Call("isEmpty", nil)
+
+	// Then
+	if err != nil {
+		t.Fatalf("Arrays.isEmpty(NULL): unexpected error %v", err)
+	}
+	if got != true {
+		t.Errorf("Arrays.isEmpty(NULL): got %v, want true", got)
 	}
 }
 

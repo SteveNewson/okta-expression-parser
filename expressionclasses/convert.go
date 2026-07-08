@@ -2,6 +2,7 @@ package expressionclasses
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 
@@ -29,7 +30,9 @@ func (Convert) Call(method string, args ...any) (any, error) {
 }
 
 // toInt casts a value to an int. A string that doesn't parse as an integer
-// yields 0, matching the source's ValueError fallback.
+// yields 0, matching the source's ValueError fallback. A float rounds to the
+// nearest integer (documented explicitly: 123.4 -> 123, 123.6 -> 124) rather
+// than truncating toward zero.
 func convertToInt(args []any) (any, error) {
 	if len(args) != 1 {
 		return nil, argCountError("Convert", "toInt", "1", len(args))
@@ -40,7 +43,7 @@ func convertToInt(args []any) (any, error) {
 	case bool:
 		return boolToInt(v), nil
 	case float64:
-		return int(v), nil
+		return int(math.Round(v)), nil
 	case string:
 		n, err := strconv.Atoi(strings.TrimSpace(v))
 		if err != nil {

@@ -43,6 +43,17 @@ func asArray(v any, class, method string) (values.Array, error) {
 	return arr, nil
 }
 
+// asArrayOrEmpty is asArray, but treats a null argument as an empty array,
+// matching the documented Arrays.size(NULL) == 0 and Arrays.isEmpty(NULL) ==
+// true, rather than erroring like every other Arrays* function does on a
+// non-array argument.
+func asArrayOrEmpty(v any, class, method string) (values.Array, error) {
+	if v == nil {
+		return values.Array{}, nil
+	}
+	return asArray(v, class, method)
+}
+
 // contains tests if a value exists in an expression's array.
 func arraysContains(args []any) (any, error) {
 	if len(args) != 2 {
@@ -141,7 +152,7 @@ func arraysSize(args []any) (any, error) {
 	if len(args) != 1 {
 		return nil, argCountError("Arrays", "size", "1", len(args))
 	}
-	arr, err := asArray(args[0], "Arrays", "size")
+	arr, err := asArrayOrEmpty(args[0], "Arrays", "size")
 	if err != nil {
 		return nil, err
 	}
@@ -153,7 +164,7 @@ func arraysIsEmpty(args []any) (any, error) {
 	if len(args) != 1 {
 		return nil, argCountError("Arrays", "isEmpty", "1", len(args))
 	}
-	arr, err := asArray(args[0], "Arrays", "isEmpty")
+	arr, err := asArrayOrEmpty(args[0], "Arrays", "isEmpty")
 	if err != nil {
 		return nil, err
 	}

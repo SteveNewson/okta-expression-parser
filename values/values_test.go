@@ -156,6 +156,67 @@ func TestCompareOperands_Ordering(t *testing.T) {
 	}
 }
 
+func TestAddOperands(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		a, b any
+		want any
+	}{
+		{"string concatenation", "Winston", "Churchill", "WinstonChurchill"},
+		{"string concatenation with space", "Winston ", "Churchill", "Winston Churchill"},
+		{"empty string concatenation", "", "a", "a"},
+		{"int addition", 1, 2, 3},
+		{"float addition", 1.5, 2.5, 4.0},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			// When
+			got, err := values.AddOperands(tc.a, tc.b)
+
+			// Then
+			if err != nil {
+				t.Fatalf("AddOperands(%#v, %#v): unexpected error %v", tc.a, tc.b, err)
+			}
+			if got != tc.want {
+				t.Errorf("AddOperands(%#v, %#v): got %#v, want %#v", tc.a, tc.b, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestAddOperands_MismatchedTypesIsError(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		a, b any
+	}{
+		{"string and int", "a", 1},
+		{"int and float", 1, 1.5},
+		{"bool and bool", true, false},
+		{"nil and string", nil, "a"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			// When
+			_, err := values.AddOperands(tc.a, tc.b)
+
+			// Then
+			if err == nil {
+				t.Errorf("AddOperands(%#v, %#v): got nil error, want an error", tc.a, tc.b)
+			}
+		})
+	}
+}
+
 func TestMergeOperands_BuildsFlatTuple(t *testing.T) {
 	t.Parallel()
 

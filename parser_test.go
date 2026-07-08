@@ -26,6 +26,7 @@ func TestParse_Literals(t *testing.T) {
 	}{
 		{"positive int", "1", 1},
 		{"multi-digit int", "123", 123},
+		{"float", "3.141", 3.141},
 		{"double-quoted string", `"hello"`, "hello"},
 		{"empty string", `""`, ""},
 		{"true lowercase", "true", true},
@@ -152,6 +153,56 @@ func TestParse_Comparison_Errors(t *testing.T) {
 				t.Errorf("Parse(%q): got nil error, want an error", tc.expr)
 			}
 		})
+	}
+}
+
+func TestParse_AdditiveOperator(t *testing.T) {
+	t.Parallel()
+
+	profile := map[string]any{"firstName": "Winston", "lastName": "Churchill"}
+
+	tests := []struct {
+		name string
+		expr string
+		want any
+	}{
+		{"string concatenation", `user.firstName + user.lastName`, "WinstonChurchill"},
+		{"string concatenation with literal separator", `user.firstName + " " + user.lastName`, "Winston Churchill"},
+		{"chained concatenation", `"a" + "b" + "c"`, "abc"},
+		{"int addition", "1 + 2", 3},
+		{"float addition", "1.5 + 2.5", 4.0},
+		{"binds tighter than comparison", `user.firstName + user.lastName == "WinstonChurchill"`, true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			// Given
+			p := oktaexpr.New(oktaexpr.WithUserProfile(profile))
+
+			// When
+			got, err := p.Parse(tc.expr)
+
+			// Then
+			if err != nil {
+				t.Fatalf("Parse(%q): unexpected error %v", tc.expr, err)
+			}
+			if got != tc.want {
+				t.Errorf("Parse(%q): got %#v, want %#v", tc.expr, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestParse_AdditiveOperator_MismatchedTypesIsError(t *testing.T) {
+	t.Parallel()
+
+	p := oktaexpr.New()
+
+	_, err := p.Parse(`1 + "a"`)
+	if err == nil {
+		t.Errorf(`Parse(1 + "a"): got nil error, want an error`)
 	}
 }
 

@@ -12,6 +12,8 @@ type String struct{}
 
 func (String) Call(method string, args ...any) (any, error) {
 	switch method {
+	case "len":
+		return stringLen(args)
 	case "stringContains":
 		return stringStringContains(args)
 	case "startsWith":
@@ -43,6 +45,19 @@ func (String) Call(method string, args ...any) (any, error) {
 	default:
 		return nil, fmt.Errorf("String has no method %q", method)
 	}
+}
+
+// len returns the number of characters in input, counted as Unicode code
+// points (matching Python's len() on a str) rather than bytes.
+func stringLen(args []any) (any, error) {
+	if len(args) != 1 {
+		return nil, argCountError("String", "len", "1", len(args))
+	}
+	val, ok := args[0].(string)
+	if !ok {
+		return nil, fmt.Errorf("string.len: expected a string, got %s", values.TypeName(args[0]))
+	}
+	return len([]rune(val)), nil
 }
 
 // stringContains tests if a string contains another string. Unlike the
@@ -210,8 +225,9 @@ func stringSubstring(args []any) (any, error) {
 	return pySlice(val, start, end), nil
 }
 
-// substringAfter returns the substring of val starting at the first
-// occurrence of search. If search is not found, val is returned unchanged.
+// substringAfter returns the substring of val immediately following the
+// first occurrence of search (search itself excluded). If search is not
+// found, val is returned unchanged.
 func stringSubstringAfter(args []any) (any, error) {
 	if len(args) != 2 {
 		return nil, argCountError("String", "substringAfter", "2", len(args))
@@ -222,7 +238,7 @@ func stringSubstringAfter(args []any) (any, error) {
 	if idx < 0 {
 		return args[0], nil
 	}
-	return val[idx:], nil
+	return val[idx+len(search):], nil
 }
 
 // substringBefore returns the substring of val before the first occurrence

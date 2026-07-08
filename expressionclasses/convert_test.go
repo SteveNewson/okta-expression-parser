@@ -9,8 +9,10 @@ import (
 // The Python source's Convert.toInt/toNum are unreachable: both are
 // decorated with @classmethod but their function signatures omit the
 // implicit cls parameter, so every call raises "takes 1 positional argument
-// but 2 were given". These tests verify this port's fix, since there is no
-// working Python behavior to use as an oracle here.
+// but 2 were given". These tests verify this port's fix, using Okta's own
+// documented behavior (which explicitly rounds a float toInt to the nearest
+// integer) as the oracle instead, since there is no working Python behavior
+// to check against.
 func TestConvert_ToInt(t *testing.T) {
 	t.Parallel()
 
@@ -21,7 +23,8 @@ func TestConvert_ToInt(t *testing.T) {
 	}{
 		{"parses digit string", "42", 42},
 		{"passes through int", 7, 7},
-		{"truncates float", 3.9, 3},
+		{"rounds float down to nearest", 123.4, 123},
+		{"rounds float up to nearest", 123.6, 124},
 		{"true is 1", true, 1},
 		{"false is 0", false, 0},
 		{"unparsable string falls back to 0", "not-a-number", 0},

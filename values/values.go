@@ -164,6 +164,30 @@ func CompareOperands(op string, a, b any) (bool, error) {
 	}
 }
 
+// AddOperands implements the "+" operator: string concatenation for two
+// strings, arithmetic addition for two ints or two floats, matching the
+// documented "Concatenate two strings" example and the fact that Integer and
+// Number are both listed as ordinary constant types. Like CompareOperands,
+// mismatched types (including bool, which is never treated as numeric here)
+// are rejected rather than coerced.
+func AddOperands(a, b any) (any, error) {
+	switch av := a.(type) {
+	case string:
+		if bv, ok := b.(string); ok {
+			return av + bv, nil
+		}
+	case int:
+		if bv, ok := b.(int); ok {
+			return av + bv, nil
+		}
+	case float64:
+		if bv, ok := b.(float64); ok {
+			return av + bv, nil
+		}
+	}
+	return nil, fmt.Errorf("unsupported operand type(s) for +: %q and %q", TypeName(a), TypeName(b))
+}
+
 func sameType(a, b any) bool {
 	if a == nil || b == nil {
 		return a == nil && b == nil

@@ -9,6 +9,8 @@ const (
 	tokName
 	tokString
 	tokInt
+	tokFloat
+	tokPlus
 	tokNE
 	tokGTE
 	tokLTE
@@ -190,12 +192,27 @@ func tokenize(input string) ([]token, error) {
 			} else {
 				return nil, fmt.Errorf("bad character '|' at character %d", start)
 			}
+		case c == '+':
+			toks = append(toks, token{tokPlus, "+", start})
+			i++
 		case isDigit(c):
 			j := i
 			for j < n && isDigit(input[j]) {
 				j++
 			}
-			toks = append(toks, token{tokInt, input[i:j], start})
+			typ := tokInt
+			// A "." is only consumed as a decimal point when followed by at
+			// least one more digit, so a bare trailing "." (or a "." that
+			// starts a path-chain access, which never follows a digit in
+			// this grammar) is left for the caller to handle separately.
+			if j < n && input[j] == '.' && j+1 < n && isDigit(input[j+1]) {
+				typ = tokFloat
+				j++
+				for j < n && isDigit(input[j]) {
+					j++
+				}
+			}
+			toks = append(toks, token{typ, input[i:j], start})
 			i = j
 		case isNameStart(c):
 			j := i

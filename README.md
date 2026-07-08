@@ -154,6 +154,46 @@ calls worth calling out explicitly:
   inconsistency exists in the Python source too; `WithGroupData` sets both,
   so callers should shape their group data for whichever feature(s) they use.
 
+- **Bugs found by testing against Okta's own public reference docs (fixed).**
+  `reference_doc_test.go` checks this port's behavior against the worked
+  examples in
+  [Okta's Expression Language reference](https://developer.okta.com/docs/reference/okta-expression-language/)
+  directly, rather than against the (partially broken) Python source. That
+  surfaced four real bugs, now fixed: `String.len` was entirely
+  unimplemented; `Arrays.size(NULL)` and `Arrays.isEmpty(NULL)` errored
+  instead of returning `0`/`true`; `Convert.toInt` truncated a float instead
+  of rounding to the nearest integer (`123.6` became `123`, not the
+  documented `124`); and `String.substringAfter` included the delimiter
+  itself in its result (`substringAfter("abc@okta.com", "@")` returned
+  `"@okta.com"`, not the documented `"okta.com"`).
+
+- **The `+` operator and decimal float literals (added).** Neither existed
+  at all: the lexer had no token for `+`, and a `.` after a digit was always
+  read as the start of a path-chain access, so `3.141` failed to tokenize.
+  Both are now supported: `+` does string concatenation for two strings and
+  arithmetic addition for two ints or two floats (mismatched types are a
+  parse-time error, matching the strictness of the relational operators),
+  and float literals like `3.141` parse as `float64`.
+
+## Coverage against Okta's public reference docs
+
+This library implements the subset of Okta Expression Language needed to
+evaluate group rule conditions: `String`, `Arrays`, `Convert`,
+`Iso3166Convert`, the `isMemberOf*` group functions, and
+`Groups.getFilteredGroups`, plus constants, comparisons, boolean logic, the
+ternary operator, and `+`. `reference_doc_test.go` checks every applicable
+example from the reference page directly against this library.
+
+The reference page also documents a much larger surface used elsewhere in
+Okta — profile mappings, OAuth/OIDC custom claims, session properties,
+Time/Manager/Assistant/Directory/Workday functions, `user.getGroups`, array
+index syntax (`{1,2,3}[0]`), the Elvis operator (`?:`), the deprecated
+`matches` regex operator, deprecated un-namespaced function aliases
+(`toUpperCase(...)`, `substringBefore(...)`, etc.), and CSV-string-to-array
+coercion for `Arrays*` functions. None of that is implemented; see the
+comment at the top of `reference_doc_test.go` for the full list and why each
+is out of scope for a group-rule-evaluation library.
+
 ## Expression classes
 
 `Arrays`, `String`, `Convert`, `Iso3166Convert`, and `Groups` are

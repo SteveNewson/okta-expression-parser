@@ -15,6 +15,8 @@ func TestString_Call(t *testing.T) {
 		args   []any
 		want   any
 	}{
+		{"len", "len", []any{"This"}, 4},
+		{"len empty string", "len", []any{""}, 0},
 		{"stringContains true", "stringContains", []any{"hello", "ell"}, true},
 		{"stringContains false", "stringContains", []any{"hello", "xyz"}, false},
 		{"stringContains non-string is false, not an error", "stringContains", []any{"hello", 5}, false},
@@ -36,7 +38,8 @@ func TestString_Call(t *testing.T) {
 		{"stringSwitch odd kv pairs returns false", "stringSwitch", []any{"hello", "default", "he"}, false},
 		{"substring", "substring", []any{"hello", 1, 3}, "el"},
 		{"substring end beyond length clamps to len-1", "substring", []any{"hello", 0, 100}, "hell"},
-		{"substringAfter found", "substringAfter", []any{"hello", "l"}, "llo"},
+		{"substringAfter found", "substringAfter", []any{"hello", "l"}, "lo"},
+		{"substringAfter multi-char delimiter excluded from result", "substringAfter", []any{"abc@okta.com", "@"}, "okta.com"},
 		{"substringAfter not found returns val unchanged", "substringAfter", []any{"hello", "z"}, "hello"},
 		{"substringBefore found", "substringBefore", []any{"hello", "l"}, "he"},
 		{"substringBefore not found returns val unchanged", "substringBefore", []any{"hello", "z"}, "hello"},
@@ -93,5 +96,20 @@ func TestString_Join_NonStringArgIsError(t *testing.T) {
 	// Then
 	if err == nil {
 		t.Errorf(`String.join(",", "a", 5): got nil error, want an error`)
+	}
+}
+
+func TestString_Len_NonStringIsError(t *testing.T) {
+	t.Parallel()
+
+	// Given
+	s := expressionclasses.String{}
+
+	// When
+	_, err := s.Call("len", 5)
+
+	// Then
+	if err == nil {
+		t.Errorf(`String.len(5): got nil error, want an error`)
 	}
 }

@@ -14,3 +14,4 @@ func mergeOperands(a, b any) any                        { return values.MergeOpe
 func spreadArgs(v any) []any                            { return values.SpreadArgs(v) }
 func equalOperands(a, b any) bool                       { return values.EqualOperands(a, b) }
 func compareOperands(op string, a, b any) (bool, error) { return values.CompareOperands(op, a, b) }
+func addOperands(a, b any) (any, error)                 { return values.AddOperands(a, b) }

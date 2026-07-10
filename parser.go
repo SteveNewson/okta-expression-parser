@@ -86,25 +86,37 @@ func New(opts ...Option) *Parser {
 	return p
 }
 
-// Parse evaluates expression and returns its result, which may be a bool,
-// int, float64, string, nil, Array, Tuple, or map[string]any depending on
-// the expression.
+// Parse parses expression into an AST Node — a pure function of the text
+// alone, independent of this Parser's configured user profile, group
+// memberships, or expression classes (see astparse.go). Call Eval (or one
+// of the typed EvalX methods) on the result to evaluate it against this
+// Parser's configuration, or inspect/rewrite the tree directly — Node's
+// concrete types are all exported for exactly that purpose.
 //
 // Unlike the Python source, which sometimes silently swallows a syntax
 // error and returns None, Parse always returns a non-nil error when the
-// expression could not be evaluated.
-func (p *Parser) Parse(expression string) (any, error) {
-	toks, err := tokenize(expression)
-	if err != nil {
-		return nil, err
-	}
-	ctx := &evalContext{
-		toks:        toks,
+// expression could not be parsed.
+func (p *Parser) Parse(expression string) (Node, error) {
+	return parseToAST(expression)
+}
+
+// newEvalContext builds the evaluation environment Eval/EvalBool/etc. use,
+// from this Parser's configured options.
+func (p *Parser) newEvalContext() *evalContext {
+	return &evalContext{
 		userProfile: p.userProfile,
 		groupIDs:    p.groupIDs,
 		groupData:   p.groupData,
 		classes:     p.classes,
 		strict:      p.strict,
 	}
-	return ctx.parse()
+}
+
+// Eval evaluates node — as returned by Parse, or constructed/rewritten
+// directly — against this Parser's configured user profile, group
+// memberships, and expression classes. The result may be a bool, int,
+// float64, string, nil, Array, Tuple, or map[string]any depending on the
+// expression node evaluates.
+func (p *Parser) Eval(node Node) (any, error) {
+	return p.newEvalContext().eval(node)
 }

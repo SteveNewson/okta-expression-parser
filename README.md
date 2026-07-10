@@ -6,10 +6,9 @@ value result from a string like `user.department == "Engineering"`.
 
 This is a Go port of the Python library
 [mathewmoon/okta-expression-parser](https://github.com/mathewmoon/okta-expression-parser).
-Rather than generating a parser from a grammar file (the Python source uses
-`sly`, a yacc-style parser generator), this port is a hand-written
-recursive-descent parser that evaluates each expression as it parses,
-mirroring the semantics of the source's embedded grammar-rule actions.
+Parsing builds a real AST (`ast.go`) via a hand-written recursive-descent
+parser (`astparse.go`); evaluating that AST (`asteval.go`) mirrors the
+semantics of the source's embedded grammar-rule actions.
 
 ## Usage
 
@@ -24,17 +23,31 @@ p := oktaexpr.New(
 	}),
 )
 
-result, err := p.Parse(`user.location == "US" and isMemberOfGroup("00g1")`)
+node, err := p.Parse(`user.location == "US" and isMemberOfGroup("00g1")`)
+result, err := p.Eval(node)
 // result == true, err == nil
 ```
 
-`Parse` returns `any`: a `bool`, `int`, `float64`, `string`, `nil`,
+`Parse` builds an `oktaexpr.Node` — a real AST, not an evaluated result —
+purely from the expression text; it doesn't need (or use) any of `p`'s
+configured profile/groups/classes. `Eval` evaluates a `Node` against `p`'s
+configuration. Splitting the two lets a caller inspect or rewrite a parsed
+expression (every `Node` type has exported fields, and isn't a sealed
+interface, so new nodes can be constructed directly too) before evaluating
+it, or evaluate the same parsed `Node` against several different `Parser`
+configurations without re-parsing.
+
+`Eval` returns `any`: a `bool`, `int`, `float64`, `string`, `nil`,
 `oktaexpr.Array`, `oktaexpr.Tuple`, or `map[string]any`, depending on the
 expression. Most callers know ahead of time which type they expect — e.g.
 an Okta group rule is always a boolean — so `Parser` also has typed
 accessors that do the type assertion for you and return `ErrUnexpectedType`
 (checkable with `errors.Is`) if the expression evaluated fine but produced a
-different type:
+different type. `EvalBool`, `EvalString`, `EvalInt`, `EvalFloat64`, and
+`EvalArray` all take a `Node`; `ParseBool`, `ParseString`, `ParseInt`,
+`ParseFloat64`, and `ParseArray` are convenience one-liners over
+`Parse`+the matching `EvalX`, for the common case of evaluating an
+expression once with no need for the intermediate `Node`:
 
 ```go
 member, err := p.ParseBool(`isMemberOfGroup("00g1")`)
@@ -43,11 +56,29 @@ if errors.Is(err, oktaexpr.ErrUnexpectedType) {
 }
 ```
 
-`ParseBool`, `ParseString`, `ParseInt`, `ParseFloat64`, and `ParseArray` are
-available. None of them coerce between numeric types — `ParseInt` on an
-expression that evaluates to a `float64` (e.g. `Convert.toNum(...)`) returns
-`ErrUnexpectedType` rather than truncating, matching the language's own
-type-strictness elsewhere (see the note on relational operators below).
+None of the typed accessors coerce between numeric types — `ParseInt`/
+`EvalInt` on an expression that evaluates to a `float64` (e.g.
+`Convert.toNum(...)`) return `ErrUnexpectedType` rather than truncating,
+matching the language's own type-strictness elsewhere (see the note on
+relational operators below).
+
+## The AST
+
+`Parse` returns one of: `Literal`, `PathExpr` (a `user.a.b.c` chain, or a
+bare name — see its doc comment for a preserved quirk), `MemberOfExpr` (the
+`isMemberOfGroup` family), `ClassCall` (`Class.method(args)`), `ArrayLit`,
+`CommaList` (a comma-joined operand group), `Ternary`, `Comparison`,
+`Additive` (`+`), `Logical` (a whole `AND`/`OR` chain), or `Not`. Every type
+has exported fields and a `String()` method producing a canonical
+re-serialization (not necessarily byte-identical to whatever text
+originally parsed to it — parenthesization is re-derived from operator
+precedence, not preserved verbatim). `Format(node)` produces multi-line,
+indented output instead, for reading a large generated expression.
+
+Building the AST is a pure function of the expression text: it doesn't
+consult `WithUserProfile`/`WithGroupIDs`/`WithGroupData`/
+`WithExpressionClasses` at all, only `Eval` does — so `Parse` never needs a
+specific `Parser`'s configuration, only `Eval` does.
 
 ## Deviations from the Python source
 
@@ -212,10 +243,10 @@ p := oktaexpr.New(
 	oktaexpr.WithUserProfile(map[string]any{"department": "Engineering"}),
 )
 
-_, err := p.Parse(`user.managerEmail == "x@example.com"`)
+_, err := p.ParseBool(`user.managerEmail == "x@example.com"`)
 // err != nil: "managerEmail" isn't a key in the profile map at all
 
-_, err = p.Parse(`user.department == "Engineering"`)
+_, err = p.ParseBool(`user.department == "Engineering"`)
 // err == nil: the key exists, even though other keys are missing
 ```
 

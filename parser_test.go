@@ -11,6 +11,23 @@ import (
 	"github.com/stevenewson/okta-expression-parser/values"
 )
 
+// mustParseEval parses and evaluates expr against p in one call, for tests
+// written against the pre-AST single-step Parse API. Preserves the exact
+// behavior that API had: a Parse (syntax) error is returned immediately,
+// without attempting Eval; otherwise Eval's result/error is returned.
+// Using this one helper throughout the test suite, rather than updating
+// every call site to a two-step Parse-then-Eval, is deliberate: every
+// existing test's expected value/error stays byte-identical, which is
+// exactly the parity proof that the new Parse/Eval split behaves the same
+// as the old fused implementation it replaced.
+func mustParseEval(p *oktaexpr.Parser, expr string) (any, error) {
+	node, err := p.Parse(expr)
+	if err != nil {
+		return nil, err
+	}
+	return p.Eval(node)
+}
+
 // TestParse_Literals, TestParse_Comparisons, etc. below are table-driven
 // against expected results verified against the real Python
 // okta-expression-parser library (see the deviations noted in the README
@@ -45,7 +62,7 @@ func TestParse_Literals(t *testing.T) {
 			p := oktaexpr.New()
 
 			// When
-			got, err := p.Parse(tc.expr)
+			got, err := mustParseEval(p, tc.expr)
 
 			// Then
 			if err != nil {
@@ -114,7 +131,7 @@ func TestParse_Comparisons(t *testing.T) {
 			p := oktaexpr.New()
 
 			// When
-			got, err := p.Parse(tc.expr)
+			got, err := mustParseEval(p, tc.expr)
 
 			// Then
 			if err != nil {
@@ -146,7 +163,7 @@ func TestParse_Comparison_Errors(t *testing.T) {
 			p := oktaexpr.New(oktaexpr.WithGroupIDs([]string{"g1"}))
 
 			// When
-			_, err := p.Parse(tc.expr)
+			_, err := mustParseEval(p, tc.expr)
 
 			// Then
 			if err == nil {
@@ -182,7 +199,7 @@ func TestParse_AdditiveOperator(t *testing.T) {
 			p := oktaexpr.New(oktaexpr.WithUserProfile(profile))
 
 			// When
-			got, err := p.Parse(tc.expr)
+			got, err := mustParseEval(p, tc.expr)
 
 			// Then
 			if err != nil {
@@ -200,7 +217,7 @@ func TestParse_AdditiveOperator_MismatchedTypesIsError(t *testing.T) {
 
 	p := oktaexpr.New()
 
-	_, err := p.Parse(`1 + "a"`)
+	_, err := mustParseEval(p, `1 + "a"`)
 	if err == nil {
 		t.Errorf(`Parse(1 + "a"): got nil error, want an error`)
 	}
@@ -244,7 +261,7 @@ func TestParse_LogicalOperators(t *testing.T) {
 			p := oktaexpr.New()
 
 			// When
-			got, err := p.Parse(tc.expr)
+			got, err := mustParseEval(p, tc.expr)
 
 			// Then
 			if err != nil {
@@ -281,7 +298,7 @@ func TestParse_LogicalOperators_EagerEvaluation(t *testing.T) {
 			p := oktaexpr.New()
 
 			// When
-			_, err := p.Parse(tc.expr)
+			_, err := mustParseEval(p, tc.expr)
 
 			// Then
 			if err == nil {
@@ -320,7 +337,7 @@ func TestParse_Ternary(t *testing.T) {
 			p := oktaexpr.New(oktaexpr.WithGroupIDs([]string{"g1"}))
 
 			// When
-			got, err := p.Parse(tc.expr)
+			got, err := mustParseEval(p, tc.expr)
 
 			// Then
 			if err != nil {
@@ -357,7 +374,7 @@ func TestParse_Ternary_BranchMustBeOperandTyped(t *testing.T) {
 			p := oktaexpr.New()
 
 			// When
-			_, err := p.Parse(tc.expr)
+			_, err := mustParseEval(p, tc.expr)
 
 			// Then
 			if err == nil {
@@ -398,7 +415,7 @@ func TestParse_UserProfilePaths(t *testing.T) {
 			p := oktaexpr.New(oktaexpr.WithUserProfile(profile))
 
 			// When
-			got, err := p.Parse(tc.expr)
+			got, err := mustParseEval(p, tc.expr)
 
 			// Then
 			if err != nil {
@@ -441,7 +458,7 @@ func TestParse_DeepUserProfilePaths(t *testing.T) {
 			p := oktaexpr.New(oktaexpr.WithUserProfile(profile))
 
 			// When
-			got, err := p.Parse(tc.expr)
+			got, err := mustParseEval(p, tc.expr)
 
 			// Then
 			if err != nil {
@@ -477,7 +494,7 @@ func TestParse_StrictPropertyAccess(t *testing.T) {
 	t.Run("missing top-level key is an error", func(t *testing.T) {
 		t.Parallel()
 		p := oktaexpr.New(oktaexpr.WithStrict(true), oktaexpr.WithUserProfile(profile))
-		_, err := p.Parse(`user.managerEmail == "x@example.com"`)
+		_, err := mustParseEval(p, `user.managerEmail == "x@example.com"`)
 		if err == nil {
 			t.Fatalf("Parse: got nil error, want an error for a missing key")
 		}
@@ -486,7 +503,7 @@ func TestParse_StrictPropertyAccess(t *testing.T) {
 	t.Run("missing nested key is an error", func(t *testing.T) {
 		t.Parallel()
 		p := oktaexpr.New(oktaexpr.WithStrict(true), oktaexpr.WithUserProfile(profile))
-		_, err := p.Parse(`user.nested.missing == "x"`)
+		_, err := mustParseEval(p, `user.nested.missing == "x"`)
 		if err == nil {
 			t.Fatalf("Parse: got nil error, want an error for a missing nested key")
 		}
@@ -507,7 +524,7 @@ func TestParse_StrictPropertyAccess(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			p := oktaexpr.New(oktaexpr.WithStrict(true), oktaexpr.WithUserProfile(profile))
-			got, err := p.Parse(tc.expr)
+			got, err := mustParseEval(p, tc.expr)
 			if err != nil {
 				t.Fatalf("Parse(%q): unexpected error %v", tc.expr, err)
 			}
@@ -524,7 +541,7 @@ func TestParse_StrictPropertyAccess(t *testing.T) {
 		// in), so strict mode leaves this alone rather than treating it the
 		// same as a genuinely absent attribute.
 		p := oktaexpr.New(oktaexpr.WithStrict(true), oktaexpr.WithUserProfile(profile))
-		got, err := p.Parse(`user.department.anything == null`)
+		got, err := mustParseEval(p, `user.department.anything == null`)
 		if err != nil {
 			t.Fatalf("Parse: unexpected error %v", err)
 		}
@@ -536,7 +553,7 @@ func TestParse_StrictPropertyAccess(t *testing.T) {
 	t.Run("default (non-strict) still resolves a missing key to nil", func(t *testing.T) {
 		t.Parallel()
 		p := oktaexpr.New(oktaexpr.WithUserProfile(profile))
-		got, err := p.Parse(`user.managerEmail == null`)
+		got, err := mustParseEval(p, `user.managerEmail == null`)
 		if err != nil {
 			t.Fatalf("Parse: unexpected error %v", err)
 		}
@@ -568,7 +585,7 @@ func TestParse_MemberOfGroup(t *testing.T) {
 			p := oktaexpr.New(oktaexpr.WithGroupIDs(tc.groupIDs))
 
 			// When
-			got, err := p.Parse(tc.expr)
+			got, err := mustParseEval(p, tc.expr)
 
 			// Then
 			if err != nil {
@@ -604,7 +621,7 @@ func TestParse_MemberOfAnyGroup(t *testing.T) {
 			p := oktaexpr.New(oktaexpr.WithGroupIDs(groupIDs))
 
 			// When
-			got, err := p.Parse(tc.expr)
+			got, err := mustParseEval(p, tc.expr)
 
 			// Then
 			if err != nil {
@@ -648,7 +665,7 @@ func TestParse_MemberOfGroupNameFamily(t *testing.T) {
 			p := oktaexpr.New(oktaexpr.WithGroupData(groupData))
 
 			// When
-			got, err := p.Parse(tc.expr)
+			got, err := mustParseEval(p, tc.expr)
 
 			// Then
 			if err != nil {
@@ -702,7 +719,7 @@ func TestParse_UserMemberOfMethodCall(t *testing.T) {
 			p := oktaexpr.New(oktaexpr.WithGroupIDs(groupIDs), oktaexpr.WithGroupData(groupData))
 
 			// When
-			got, err := p.Parse(tc.expr)
+			got, err := mustParseEval(p, tc.expr)
 
 			// Then
 			if err != nil {
@@ -739,7 +756,7 @@ func TestParse_ArrayLiterals(t *testing.T) {
 			p := oktaexpr.New()
 
 			// When
-			got, err := p.Parse(tc.expr)
+			got, err := mustParseEval(p, tc.expr)
 
 			// Then
 			if err != nil {
@@ -761,7 +778,7 @@ func TestParse_EmptyArrayLiteralIsAnError(t *testing.T) {
 	p := oktaexpr.New()
 
 	// When
-	_, err := p.Parse("Arrays.isEmpty({})")
+	_, err := mustParseEval(p, "Arrays.isEmpty({})")
 
 	// Then
 	if err == nil {
@@ -795,7 +812,7 @@ func TestParse_ClassMethodCalls(t *testing.T) {
 			p := oktaexpr.New()
 
 			// When
-			got, err := p.Parse(tc.expr)
+			got, err := mustParseEval(p, tc.expr)
 
 			// Then
 			if err != nil {
@@ -860,7 +877,7 @@ func TestParse_StringContainsArrayIdiom(t *testing.T) {
 			p := oktaexpr.New(oktaexpr.WithUserProfile(tc.profile))
 
 			// When
-			got, err := p.Parse(tc.expr)
+			got, err := mustParseEval(p, tc.expr)
 
 			// Then
 			if err != nil {
@@ -887,7 +904,7 @@ func TestParse_CommaGreedilyBindsToInnermostOperand(t *testing.T) {
 	p := oktaexpr.New()
 
 	// When
-	got, err := p.Parse(`String.join(",", true ? "a" : "b", "c")`)
+	got, err := mustParseEval(p, `String.join(",", true ? "a" : "b", "c")`)
 
 	// Then
 	if err != nil {
@@ -903,7 +920,7 @@ func TestParse_UnknownClassIsAnError(t *testing.T) {
 
 	p := oktaexpr.New()
 
-	_, err := p.Parse(`NoSuchClass.method("x")`)
+	_, err := mustParseEval(p, `NoSuchClass.method("x")`)
 	if err == nil {
 		t.Errorf("Parse with unknown class: got nil error, want an error")
 	}
@@ -934,7 +951,7 @@ func TestParse_SyntaxErrorsReturnAnError(t *testing.T) {
 			p := oktaexpr.New()
 
 			// When
-			_, err := p.Parse(tc.expr)
+			_, err := mustParseEval(p, tc.expr)
 
 			// Then
 			if err == nil {
@@ -979,7 +996,7 @@ func TestParse_StaticTestScenarios(t *testing.T) {
 			t.Parallel()
 
 			// When
-			got, err := p.Parse(tc.expr)
+			got, err := mustParseEval(p, tc.expr)
 
 			// Then
 			if err != nil {
@@ -1020,7 +1037,7 @@ func TestParse_CustomExpressionClasses(t *testing.T) {
 	}))
 
 	// When
-	got, err := p.Parse(`String.shout("hi")`)
+	got, err := mustParseEval(p, `String.shout("hi")`)
 
 	// Then
 	if err != nil {
@@ -1042,7 +1059,7 @@ func TestParse_CustomExpressionClasses_DefaultClassesAreReplacedNotMerged(t *tes
 	}))
 
 	// When
-	_, err := p.Parse(`Arrays.size({1,2,3})`)
+	_, err := mustParseEval(p, `Arrays.size({1,2,3})`)
 
 	// Then
 	if err == nil {
@@ -1071,7 +1088,7 @@ func TestParse_ClassCallSyntaxErrors(t *testing.T) {
 			p := oktaexpr.New()
 
 			// When
-			_, err := p.Parse(tc.expr)
+			_, err := mustParseEval(p, tc.expr)
 
 			// Then
 			if err == nil {
@@ -1090,7 +1107,7 @@ func TestParse_MemberOfGroupNameRegex_InvalidPatternIsAnError(t *testing.T) {
 	}))
 
 	// When
-	_, err := p.Parse(`isMemberOfGroupNameRegex("[")`)
+	_, err := mustParseEval(p, `isMemberOfGroupNameRegex("[")`)
 
 	// Then
 	if err == nil {
@@ -1117,7 +1134,7 @@ func TestParse_MemberOfSyntaxErrors(t *testing.T) {
 			p := oktaexpr.New()
 
 			// When
-			_, err := p.Parse(tc.expr)
+			_, err := mustParseEval(p, tc.expr)
 
 			// Then
 			if err == nil {

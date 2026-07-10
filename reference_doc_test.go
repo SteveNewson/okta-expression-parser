@@ -90,7 +90,7 @@ func TestReferenceDoc_StringFunctions(t *testing.T) {
 
 			p := oktaexpr.New()
 
-			got, err := p.Parse(tc.expr)
+			got, err := mustParseEval(p, tc.expr)
 			if err != nil {
 				t.Fatalf("Parse(%q): unexpected error %v", tc.expr, err)
 			}
@@ -107,7 +107,7 @@ func TestReferenceDoc_ArrayFunctions(t *testing.T) {
 	t.Run("Arrays.add", func(t *testing.T) {
 		t.Parallel()
 		p := oktaexpr.New(oktaexpr.WithUserProfile(map[string]any{"arrayAttribute": values.Array{10, 20, 30}}))
-		got, err := p.Parse(`Arrays.add(user.arrayAttribute, 40)`)
+		got, err := mustParseEval(p, `Arrays.add(user.arrayAttribute, 40)`)
 		if err != nil {
 			t.Fatalf("unexpected error %v", err)
 		}
@@ -120,7 +120,7 @@ func TestReferenceDoc_ArrayFunctions(t *testing.T) {
 	t.Run("Arrays.remove", func(t *testing.T) {
 		t.Parallel()
 		p := oktaexpr.New(oktaexpr.WithUserProfile(map[string]any{"arrayAttribute": values.Array{10, 20, 30}}))
-		got, err := p.Parse(`Arrays.remove(user.arrayAttribute, 20)`)
+		got, err := mustParseEval(p, `Arrays.remove(user.arrayAttribute, 20)`)
 		if err != nil {
 			t.Fatalf("unexpected error %v", err)
 		}
@@ -133,7 +133,7 @@ func TestReferenceDoc_ArrayFunctions(t *testing.T) {
 	t.Run("Arrays.clear", func(t *testing.T) {
 		t.Parallel()
 		p := oktaexpr.New(oktaexpr.WithUserProfile(map[string]any{"arrayAttribute": values.Array{10, 20, 30}}))
-		got, err := p.Parse(`Arrays.clear(user.arrayAttribute)`)
+		got, err := mustParseEval(p, `Arrays.clear(user.arrayAttribute)`)
 		if err != nil {
 			t.Fatalf("unexpected error %v", err)
 		}
@@ -160,7 +160,7 @@ func TestReferenceDoc_ArrayFunctions(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			p := oktaexpr.New()
-			got, err := p.Parse(tc.expr)
+			got, err := mustParseEval(p, tc.expr)
 			if err != nil {
 				t.Fatalf("Parse(%q): unexpected error %v", tc.expr, err)
 			}
@@ -173,7 +173,7 @@ func TestReferenceDoc_ArrayFunctions(t *testing.T) {
 	t.Run("Arrays.flatten multiple args and nested arrays", func(t *testing.T) {
 		t.Parallel()
 		p := oktaexpr.New()
-		got, err := p.Parse(`Arrays.flatten(10, {20, 30}, 40)`)
+		got, err := mustParseEval(p, `Arrays.flatten(10, {20, 30}, 40)`)
 		if err != nil {
 			t.Fatalf("unexpected error %v", err)
 		}
@@ -218,7 +218,7 @@ func TestReferenceDoc_ConvertFunctions(t *testing.T) {
 
 			p := oktaexpr.New(oktaexpr.WithUserProfile(tc.profile))
 
-			got, err := p.Parse(tc.expr)
+			got, err := mustParseEval(p, tc.expr)
 			if err != nil {
 				t.Fatalf("Parse(%q): unexpected error %v", tc.expr, err)
 			}
@@ -249,7 +249,7 @@ func TestReferenceDoc_Iso3166ConvertFunctions(t *testing.T) {
 
 			p := oktaexpr.New()
 
-			got, err := p.Parse(tc.expr)
+			got, err := mustParseEval(p, tc.expr)
 			if err != nil {
 				t.Fatalf("Parse(%q): unexpected error %v", tc.expr, err)
 			}
@@ -273,7 +273,7 @@ func TestReferenceDoc_GroupFunctions(t *testing.T) {
 	}
 	p := oktaexpr.New(oktaexpr.WithGroupData(groupData))
 
-	got, err := p.Parse(`Groups.getFilteredGroups({"00gml2xHE3RYRx7cM0g3"}, "group.name", 40)`)
+	got, err := mustParseEval(p, `Groups.getFilteredGroups({"00gml2xHE3RYRx7cM0g3"}, "group.name", 40)`)
 	if err != nil {
 		t.Fatalf("unexpected error %v", err)
 	}
@@ -303,7 +303,7 @@ func TestReferenceDoc_ConstantsAndOperators(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			p := oktaexpr.New()
-			got, err := p.Parse(tc.expr)
+			got, err := mustParseEval(p, tc.expr)
 			if err != nil {
 				t.Fatalf("Parse(%q): unexpected error %v", tc.expr, err)
 			}
@@ -328,7 +328,7 @@ func TestReferenceDoc_ConstantsAndOperators(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			p := oktaexpr.New(oktaexpr.WithUserProfile(profile))
-			got, err := p.Parse(tc.expr)
+			got, err := mustParseEval(p, tc.expr)
 			if err != nil {
 				t.Fatalf("Parse(%q): unexpected error %v", tc.expr, err)
 			}
@@ -341,7 +341,7 @@ func TestReferenceDoc_ConstantsAndOperators(t *testing.T) {
 	t.Run("ternary false branch", func(t *testing.T) {
 		t.Parallel()
 		p := oktaexpr.New(oktaexpr.WithUserProfile(map[string]any{"groupCode": 456}))
-		got, err := p.Parse(`user.groupCode == 123 ? 'Sales' : 'Other'`)
+		got, err := mustParseEval(p, `user.groupCode == 123 ? 'Sales' : 'Other'`)
 		if err != nil {
 			t.Fatalf("unexpected error %v", err)
 		}
@@ -390,7 +390,7 @@ func TestReferenceDoc_GroupRuleSamples(t *testing.T) {
 
 			p := oktaexpr.New(oktaexpr.WithUserProfile(profile))
 
-			got, err := p.Parse(tc.expr)
+			got, err := mustParseEval(p, tc.expr)
 			if err != nil {
 				t.Fatalf("Parse(%q): unexpected error %v", tc.expr, err)
 			}
@@ -409,7 +409,7 @@ func TestReferenceDoc_NullAndBlankAttributes(t *testing.T) {
 	t.Run("never populated attribute is null", func(t *testing.T) {
 		t.Parallel()
 		p := oktaexpr.New(oktaexpr.WithUserProfile(map[string]any{}))
-		got, err := p.Parse(`user.employeeNumber == null`)
+		got, err := mustParseEval(p, `user.employeeNumber == null`)
 		if err != nil {
 			t.Fatalf("unexpected error %v", err)
 		}
@@ -422,7 +422,7 @@ func TestReferenceDoc_NullAndBlankAttributes(t *testing.T) {
 		t.Parallel()
 		p := oktaexpr.New(oktaexpr.WithUserProfile(map[string]any{"employeeNumber": ""}))
 
-		isNull, err := p.Parse(`user.employeeNumber == null`)
+		isNull, err := mustParseEval(p, `user.employeeNumber == null`)
 		if err != nil {
 			t.Fatalf("unexpected error %v", err)
 		}
@@ -430,7 +430,7 @@ func TestReferenceDoc_NullAndBlankAttributes(t *testing.T) {
 			t.Errorf(`user.employeeNumber == null: got %#v, want false`, isNull)
 		}
 
-		isEmpty, err := p.Parse(`user.employeeNumber == ""`)
+		isEmpty, err := mustParseEval(p, `user.employeeNumber == ""`)
 		if err != nil {
 			t.Fatalf("unexpected error %v", err)
 		}
@@ -447,7 +447,7 @@ func TestReferenceDoc_NullAndBlankAttributes(t *testing.T) {
 			"employeeNumber":    "E-7",
 			"nonEmployeeNumber": "N-42",
 		}))
-		got, err := p.Parse(fallback)
+		got, err := mustParseEval(p, fallback)
 		if err != nil {
 			t.Fatalf("unexpected error %v", err)
 		}
@@ -462,7 +462,7 @@ func TestReferenceDoc_NullAndBlankAttributes(t *testing.T) {
 			"employeeNumber":    "",
 			"nonEmployeeNumber": "N-42",
 		}))
-		got, err := p.Parse(fallback)
+		got, err := mustParseEval(p, fallback)
 		if err != nil {
 			t.Fatalf("unexpected error %v", err)
 		}
@@ -502,7 +502,7 @@ func TestReferenceDoc_PopularExpressions(t *testing.T) {
 
 			p := oktaexpr.New(oktaexpr.WithUserProfile(profile))
 
-			got, err := p.Parse(tc.expr)
+			got, err := mustParseEval(p, tc.expr)
 			if err != nil {
 				t.Fatalf("Parse(%q): unexpected error %v", tc.expr, err)
 			}
